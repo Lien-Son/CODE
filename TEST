@@ -1,0 +1,24 @@
+WITH table_month AS (
+    SELECT customer_id, order_id, transaction_date
+     --   , YEAR (transaction_date) AS [year]
+     --   , MONTH (transaction_date) AS [month]
+        , FORMAT (transaction_date , 'yyyyMM') AS [time]
+    FROM (SELECT * FROM payment_history_17 UNION SELECT * FROM payment_history_18) AS his
+    LEFT JOIN product AS pro
+        ON his.product_id = pro.product_number
+    WHERE category = 'Billing'
+)
+, table_order AS (
+    SELECT DISTINCT CAST ( [time] AS INT ) AS [time]
+        , COUNT (order_id) OVER (PARTITION BY [time]) AS Number_order_year
+    FROM table_month
+)
+, table_lag AS (
+    SELECT *
+        ,LAG (number_order_year , 12) OVER (ORDER BY [time] ASC) AS number_orders_last_year
+    FROM table_order
+)
+SELECT *
+    ,FORMAT( (number_order_year - number_orders_last_year) / CAST ( number_orders_last_year AS DECIMAL) , 'p' ) AS [%_growth]
+FROM table_lag
+WHERE number_orders_last_year IS NOT NULL
